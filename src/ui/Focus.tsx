@@ -417,6 +417,12 @@ export default function Focus() {
       60
   );
 
+  /** Matches the fixed cell widths in focus.css. */
+  const clockCells = useMemo(
+    () => [...clock].reduce((n, ch) => n + (ch === ":" ? 0.28 : 0.62), 0).toFixed(2),
+    [clock]
+  );
+
   const RADIUS = 46;
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -499,7 +505,15 @@ export default function Focus() {
               The spans are hidden from assistive tech and the plain string is
               exposed on the parent, so it is not read out digit by digit.
             */}
-            <p className="dial__time" role="timer" aria-live="off" aria-label={clock}>
+            <p
+              className="dial__time"
+              role="timer"
+              aria-live="off"
+              aria-label={clock}
+              // Width of this exact string in em, so the type can be sized to
+              // fit the ring whether the clock reads 25:00 or 3:15:00.
+              style={{ "--cells": clockCells } as React.CSSProperties}
+            >
               {clock.split("").map((ch, i) => (
                 <span
                   key={i}

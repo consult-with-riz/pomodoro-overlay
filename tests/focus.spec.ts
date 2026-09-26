@@ -136,6 +136,49 @@ test.describe("focus timer", () => {
     expect(spread, `clock width varies by ${spread.toFixed(2)}px across digits`).toBeLessThan(0.5);
   });
 
+  test("the clock stays inside the ring, including past an hour", async ({ page }) => {
+    // Sizing the clock from the viewport rather than from the dial meant even
+    // 25:00 spilled 76px past the ring, and a three hour session was far
+    // worse. The type is now derived from the dial and the string's own
+    // length, so both have to fit whatever the session is.
+    const fits = async (label: string) => {
+      const { dial, clock, text } = await page.evaluate(() => {
+        const d = document.querySelector(".dial")!.getBoundingClientRect();
+        const t = document.querySelector(".dial__time")!;
+        return {
+          dial: d.width,
+          clock: t.getBoundingClientRect().width,
+          text: t.textContent ?? "",
+        };
+      });
+      // The ring's own stroke eats into the usable width, so 80% of the
+      // diameter is the generous bound; anything wider is touching it.
+      expect(
+        clock,
+        `${label}: "${text}" is ${Math.round(clock)}px in a ${Math.round(dial)}px dial`
+      ).toBeLessThan(dial * 0.8);
+    };
+
+    await page.goto(APP, { waitUntil: "networkidle" });
+    await fits("25:00");
+
+    await page.getByRole("button", { name: "90 / 15" }).click();
+    await page.waitForTimeout(300);
+    await fits("1:30:00");
+
+    // The case reported: 3h15 focus blocks.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "pomodoro-focus-settings-v1",
+        JSON.stringify({ focusMin: 195, breakMin: 15, rounds: 1, presetId: "custom" })
+      );
+    });
+    await page.goto(APP, { waitUntil: "networkidle" });
+    await page.waitForTimeout(400);
+    await expect(page.locator(".dial__time")).toHaveText("3:15:00");
+    await fits("3:15:00");
+  });
+
   test("everything fits without scrolling", async ({ page }) => {
     // A laptop viewport. The shortcut line used to fall below the fold.
     for (const height of [760, 860, 960]) {
