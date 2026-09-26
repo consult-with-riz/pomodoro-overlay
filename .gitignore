@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+dist/
+.vercel
+.DS_Store
+*.log
+test-results/
+playwright-report/
+tests/output/
+
+# derived from the prototype by scripts/build-harness.mjs
+reference/prototype-harness.html

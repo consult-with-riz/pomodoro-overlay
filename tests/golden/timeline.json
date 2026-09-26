@@ -1,0 +1,63 @@
+{
+  "total": 248,
+  "rounds": 2,
+  "segments": [
+    {
+      "kind": "lead",
+      "dur": 3,
+      "start": 0
+    },
+    {
+      "kind": "focus",
+      "dur": 60,
+      "start": 3
+    },
+    {
+      "kind": "break",
+      "dur": 60,
+      "start": 63
+    },
+    {
+      "kind": "focus",
+      "dur": 60,
+      "start": 123
+    },
+    {
+      "kind": "break",
+      "dur": 60,
+      "start": 183
+    },
+    {
+      "kind": "done",
+      "dur": 5,
+      "start": 243
+    }
+  ],
+  "samples": {
+    "1": {
+      "kind": "lead",
+      "round": 1,
+      "clock": "00:02"
+    },
+    "5": {
+      "kind": "focus",
+      "round": 1,
+      "clock": "00:58"
+    },
+    "65": {
+      "kind": "break",
+      "round": 1,
+      "clock": "00:58"
+    },
+    "130": {
+      "kind": "focus",
+      "round": 2,
+      "clock": "00:53"
+    },
+    "246": {
+      "kind": "done",
+      "round": 2,
+      "clock": "00:02"
+    }
+  }
+}

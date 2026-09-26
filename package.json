@@ -1,0 +1,19 @@
+{
+  "name": "pomodoro-overlay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fonts": "node scripts/fetch-fonts.mjs",
+    "harness": "node scripts/build-harness.mjs",
+    "golden": "node scripts/capture-goldens.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "@playwright/test": "^1.50.0",
+    "ffmpeg-static": "^5.2.0",
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0"
+  }
+}
