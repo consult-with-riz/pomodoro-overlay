@@ -1,0 +1,228 @@
+/*
+ * The focus timer.
+ *
+ * Its own stylesheet because it is a different product from the overlay maker
+ * and shares only the brand. Phase colours arrive as --from / --to /
+ * --phase-ink / --phase-accent, set inline from the theme, so a phase change
+ * is a CSS transition rather than a re-render.
+ */
+
+.focus{
+  min-height:100dvh;
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:clamp(16px,3vh,40px);
+  padding:clamp(16px,2.5vw,28px);
+  padding-top:calc(clamp(16px,2.5vw,28px) + env(safe-area-inset-top,0px));
+  padding-bottom:calc(clamp(16px,2.5vw,28px) + env(safe-area-inset-bottom,0px));
+  color:var(--phase-ink);
+  background:linear-gradient(150deg, var(--from) 0%, var(--to) 100%);
+  /* The phase change is the feature, so it is slow enough to notice. */
+  transition:background 1.6s ease, color 1.2s ease;
+}
+
+/* Slow drift. Large, cheap, and paused whenever the tab is hidden so a long
+   session does not quietly cost battery. */
+.focus--motion{
+  background-size:180% 180%;
+  animation:drift 46s ease-in-out infinite;
+}
+@keyframes drift{
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+
+.focus__bar{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  transition:opacity .6s ease;
+}
+/* The wordmark defaults to the global ink, which disappears on the dark
+   themes. On this page it belongs to the phase like everything else. */
+.focus .wordmark{color:inherit;margin:0}
+.focus .wordmark:hover{color:var(--phase-accent)}
+
+.focus__nav{display:flex;align-items:center;gap:8px}
+.focus__nav a{
+  color:inherit;opacity:.72;text-decoration:none;font-size:14.5px;font-weight:500;
+  padding:9px 12px;border-radius:8px;
+}
+.focus__nav a:hover{opacity:1;background:color-mix(in srgb, var(--phase-ink) 9%, transparent)}
+.focus__iconbtn{
+  background:transparent;border:1px solid color-mix(in srgb, var(--phase-ink) 22%, transparent);
+  color:inherit;font-size:14.5px;font-weight:500;padding:9px 14px;border-radius:8px;cursor:pointer;
+}
+.focus__iconbtn:hover{background:color-mix(in srgb, var(--phase-ink) 9%, transparent)}
+
+.focus__stage{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(18px,3vh,34px);min-height:0;
+}
+
+/* The dial is sized from the viewport's shorter axis so it fills the room on
+   any shape of screen without ever overflowing. */
+.dial{
+  position:relative;
+  width:min(62vh, 72vw, 560px);
+  aspect-ratio:1;
+}
+.dial svg{width:100%;height:100%;transform:rotate(-90deg);display:block}
+.dial__track{
+  fill:none;stroke:color-mix(in srgb, var(--phase-ink) 14%, transparent);stroke-width:2.6;
+}
+.dial__progress{
+  fill:none;stroke:var(--phase-accent);stroke-width:2.6;stroke-linecap:round;
+  transition:stroke-dashoffset .28s linear, stroke 1.2s ease;
+}
+
+.dial__face{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;text-align:center;padding:14%;
+}
+.dial__phase{
+  margin:0;font-size:clamp(13px,1.5vh,16px);font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--phase-accent);
+}
+.dial__time{
+  margin:0;font-size:clamp(56px,15vh,150px);line-height:1;font-weight:500;
+  letter-spacing:-0.03em;display:flex;justify-content:center;align-items:baseline;
+}
+/*
+  Fixed cells, because the typeface has no tabular figures — tabular-nums does
+  nothing here and the clock shifts as the digits change. 0.62em is the widest
+  glyph ("4"); em so it tracks the clamped font size.
+*/
+.dial__digit{display:inline-block;width:0.62em;text-align:center}
+.dial__colon{display:inline-block;width:0.28em;text-align:center}
+.dial__dots{display:flex;gap:7px;margin:10px 0 0;padding:0}
+.dial__dots span{
+  width:7px;height:7px;border-radius:50%;
+  background:color-mix(in srgb, var(--phase-ink) 22%, transparent);
+}
+.dial__dots span.on{background:var(--phase-accent)}
+.dial__dots span.now{background:var(--phase-accent);transform:scale(1.4)}
+
+.focus__task{
+  width:min(440px,90vw);text-align:center;background:transparent;color:inherit;
+  border:0;border-bottom:1px solid color-mix(in srgb, var(--phase-ink) 18%, transparent);
+  padding:9px 6px;font-size:16.5px;font-family:inherit;
+}
+.focus__task::placeholder{color:color-mix(in srgb, var(--phase-ink) 45%, transparent)}
+.focus__task:focus{outline:none;border-bottom-color:var(--phase-accent)}
+
+.focus__done{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.focus__done p{margin:0;font-size:18px;opacity:.85}
+
+.focus__controls{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  transition:opacity .6s ease;
+}
+.focus__transport{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+/* Buttons here read against a coloured page, so they are drawn from the phase
+   ink rather than the global tokens. */
+.focus .btn{
+  min-height:46px;padding:0 20px;border-radius:8px;cursor:pointer;font-weight:500;
+  font-size:15px;display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;color:inherit;
+  border:1px solid color-mix(in srgb, var(--phase-ink) 22%, transparent);
+  transition:background .15s ease,border-color .15s ease;
+}
+.focus .btn:hover{background:color-mix(in srgb, var(--phase-ink) 10%, transparent)}
+.focus .btn.primary{
+  background:var(--phase-ink);color:var(--from);border-color:var(--phase-ink);
+  min-width:132px;font-weight:600;
+}
+.focus .btn.primary:hover{background:var(--phase-accent);border-color:var(--phase-accent)}
+
+.focus__presets{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.chip{
+  background:transparent;color:inherit;cursor:pointer;font:inherit;font-size:14px;font-weight:500;
+  border:1px solid color-mix(in srgb, var(--phase-ink) 20%, transparent);
+  padding:7px 14px;border-radius:999px;opacity:.75;
+}
+.chip:hover{opacity:1}
+.chip--on{
+  opacity:1;background:color-mix(in srgb, var(--phase-ink) 12%, transparent);
+  border-color:color-mix(in srgb, var(--phase-ink) 42%, transparent);font-weight:600;
+}
+
+.focus__keys{margin:0;font-size:12.5px;opacity:.5;text-align:center}
+.focus__keys kbd{
+  font:inherit;font-weight:600;padding:1px 5px;border-radius:4px;
+  border:1px solid color-mix(in srgb, var(--phase-ink) 22%, transparent);
+}
+
+/* Once a session is running and the pointer settles, everything but the timer
+   fades out. It comes straight back on any movement or key press. */
+.focus--idle .focus__bar,
+.focus--idle .focus__controls{opacity:0;pointer-events:none}
+.focus--idle .focus__task{opacity:.25}
+
+/* ---------- settings sheet ---------- */
+
+.sheet{
+  position:fixed;top:0;right:0;bottom:0;width:min(400px,92vw);z-index:40;
+  background:var(--panel);color:var(--ink);border-left:1px solid var(--line);
+  padding:20px 22px calc(28px + env(safe-area-inset-bottom,0px));
+  overflow:auto;transform:translateX(100%);transition:transform .28s ease;
+  box-shadow:-18px 0 44px rgba(0,0,0,.14);
+}
+.sheet--open{transform:translateX(0)}
+.sheet__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.sheet__head h2{font:500 22px/1.2 var(--ui);letter-spacing:-0.012em;margin:0}
+.sheet__head .focus__iconbtn{border-color:var(--line);color:var(--ink)}
+.sheet__head .focus__iconbtn:hover{background:var(--field)}
+.sheet section{padding:18px 0;border-bottom:1px solid var(--line)}
+.sheet section:last-child{border-bottom:0}
+.sheet h3{font:600 14px/1.2 var(--ui);margin:0 0 12px;letter-spacing:.01em}
+.sheet select{
+  width:100%;height:42px;border:1px solid var(--line);border-radius:8px;
+  background:var(--field);color:var(--ink);padding:0 11px;font:inherit;
+}
+.sheet .hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.5}
+.sheet .btn{
+  display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;
+  border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--ink);
+  text-decoration:none;font-weight:500;cursor:pointer;
+}
+.sheet .btn:hover{border-color:var(--ink)}
+
+.slider-row{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:14px;color:var(--muted)}
+.slider-row input[type=range]{flex:1;accent-color:var(--tomato)}
+
+.swatches{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* The label sits below the colour rather than on it — white-on-cream was
+   unreadable for the light theme, and no single label colour works on all
+   four. */
+.swatch{
+  border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--panel);
+  display:flex;flex-direction:column;gap:7px;padding:7px;text-align:left;
+}
+.swatch i{display:block;height:46px;border-radius:6px;border:1px solid var(--line)}
+.swatch span{font-size:12.5px;font-weight:600;color:var(--ink);padding:0 2px 2px}
+.swatch:hover{border-color:var(--ink)}
+.swatch--on{border-color:var(--tomato);box-shadow:0 0 0 2px var(--tomato)}
+
+.sheet__scrim{
+  position:fixed;inset:0;z-index:39;border:0;padding:0;cursor:default;
+  background:rgba(10,14,12,.28);
+}
+
+.focus__nav .narrow{display:none}
+
+@media (max-width:640px){
+  /* Shortened, not removed — see Focus.tsx. */
+  .focus__nav .wide{display:none}
+  .focus__nav .narrow{display:inline}
+  .focus__nav a{padding:9px 10px;font-size:14px}
+  .focus__iconbtn{padding:9px 11px;font-size:14px}
+  .dial{width:min(52vh,86vw)}
+}
+
+/* An animated background working against a focus session is the wrong
+   trade, so motion goes entirely when the system asks for less of it. */
+@media (prefers-reduced-motion: reduce){
+  .focus,.focus--motion{animation:none!important;transition:none!important}
+  .dial__progress{transition:none!important}
+  .sheet{transition:none!important}
+}

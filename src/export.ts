@@ -16,8 +16,9 @@ import {
   canEncodeVideo,
   getFirstEncodableAudioCodec,
 } from "mediabunny";
-import { BELL_LEN, bellSample, bellTimes } from "./bell";
+import { BELL_LEN, bellSample, bellTimes, type BellVariant } from "./bell";
 import { drawFrame } from "./draw";
+import { makeNoiseLoop } from "./noise";
 import { RES, type Settings } from "./settings";
 import { buildTimeline, fmtLen, type Timeline } from "./timeline";
 
@@ -78,6 +79,10 @@ export interface RenderEstimate {
   seconds: number;
   /** Very rough, from pixel count. Only used to warn, never to promise. */
   approxBytes: number;
+  /** The audio share of the above, which an ambient bed dominates. */
+  audioBytes: number;
+  /** Whether an ambient bed is switched on. */
+  bedOn: boolean;
   /**
    * Whether the whole file is likely to fit in memory. The output is buffered
    * until finalize, so a long 4K render can exhaust the tab before it ends.
@@ -89,6 +94,9 @@ export interface RenderEstimate {
 /** Buffered output means memory is the ceiling; warn well before it is hit. */
 const RISKY_BYTES = 1_200_000_000;
 
+/** Roughly what Opus spends on an incompressible signal, in bits per second. */
+const AUDIO_BITRATE = 96_000;
+
 export function estimate(settings: Settings): RenderEstimate {
   const tl = buildTimeline(settings);
   const [width, height] = RES[settings.res] ?? RES["1080"];
@@ -97,7 +105,18 @@ export function estimate(settings: Settings): RenderEstimate {
 
   // Rough bits-per-pixel for the quality preset, doubled for alpha.
   const bpp = settings.bg === "transparent" ? 0.14 : 0.07;
-  const approxBytes = (width * height * bpp * frames) / 8;
+  const videoBytes = (width * height * bpp * frames) / 8;
+
+  /*
+   * Audio is normally a rounding error, because a track of silence with a few
+   * bells in it compresses to almost nothing. An ambient bed is the opposite:
+   * noise is incompressible by definition, so the encoder spends its full
+   * bitrate for the whole session. That is worth showing rather than letting
+   * someone discover it at download time.
+   */
+  const bedOn = settings.noise !== "none" && settings.noiseVolume > 0;
+  const audioBytes = bedOn ? (AUDIO_BITRATE / 8) * tl.total : tl.total * 900;
+  const approxBytes = videoBytes + audioBytes;
   const risky = approxBytes > RISKY_BYTES;
 
   return {
@@ -107,6 +126,8 @@ export function estimate(settings: Settings): RenderEstimate {
     frames,
     seconds: tl.total,
     approxBytes,
+    audioBytes,
+    bedOn,
     risky,
     warning: risky
       ? `A ${fmtLen(tl.total)} render at ${width} × ${height} could need more ` +
@@ -159,21 +180,48 @@ function yieldNow(): Promise<void> {
   });
 }
 
-/** One second of mono audio containing whichever bells overlap it. */
-function bellChunk(second: number, bells: number[]): AudioBuffer {
+/**
+ * One second of mono audio: whichever bells overlap it, over the ambient bed.
+ *
+ * The bed is a pre-built loop tiled across the session, so the seam is
+ * inaudible and generating it costs nothing per chunk.
+ */
+function audioChunk(
+  second: number,
+  bells: number[],
+  bellVariant: BellVariant,
+  bed: Float32Array | null,
+  bedGain: number
+): AudioBuffer {
   const buffer = new AudioBuffer({
     length: AUDIO_SAMPLE_RATE,
     numberOfChannels: 1,
     sampleRate: AUDIO_SAMPLE_RATE,
   });
   const data = buffer.getChannelData(0);
+
+  if (bed && bedGain > 0) {
+    const offset = Math.round(second * AUDIO_SAMPLE_RATE);
+    for (let n = 0; n < AUDIO_SAMPLE_RATE; n++) {
+      data[n] = bed[(offset + n) % bed.length] * bedGain;
+    }
+  }
+
   for (const start of bells) {
     if (start > second + 1 || start + BELL_LEN < second) continue;
     for (let n = 0; n < AUDIO_SAMPLE_RATE; n++) {
       const tau = second + n / AUDIO_SAMPLE_RATE - start;
-      if (tau >= 0 && tau <= BELL_LEN) data[n] += bellSample(tau);
+      if (tau >= 0 && tau <= BELL_LEN) data[n] += bellSample(tau, bellVariant);
     }
   }
+
+  // The bed plus a bell can exceed full scale; clamp rather than let the
+  // encoder wrap and produce a crack on every chime.
+  for (let n = 0; n < AUDIO_SAMPLE_RATE; n++) {
+    if (data[n] > 1) data[n] = 1;
+    else if (data[n] < -1) data[n] = -1;
+  }
+
   return buffer;
 }
 
@@ -262,7 +310,12 @@ export async function renderVideo({
 
   let audio: AudioBufferSource | null = null;
   let audioNote: string | null = null;
-  if (cfg.bell) {
+
+  // An audio track is only worth adding when something will actually be in it:
+  // an audible bell, an ambient bed, or both.
+  const wantsBell = cfg.bell && cfg.bellSound !== "none";
+  const wantsBed = cfg.noise !== "none" && cfg.noiseVolume > 0;
+  if (wantsBell || wantsBed) {
     // WebM carries Opus; MP4 prefers AAC but takes Opus.
     const list = transparent ? (["opus"] as const) : (["aac", "opus"] as const);
     let acodec = null;
@@ -279,12 +332,17 @@ export async function renderVideo({
       audio = new AudioBufferSource({ codec: acodec, quality: QUALITY_HIGH });
       output.addAudioTrack(audio);
     } else {
-      audioNote = "The bell was left out because this browser can't encode audio.";
+      audioNote = "The audio was left out because this browser can't encode it.";
     }
   }
 
-  const bells = bellTimes(tl);
+  const bells = wantsBell ? bellTimes(tl) : [];
   const frames = Math.round(tl.total * fps);
+
+  // Built once and tiled. Only when an ambient bed was actually chosen —
+  // silence costs the encoder almost nothing, continuous noise does not.
+  const bed = wantsBed ? makeNoiseLoop(cfg.noise as Exclude<typeof cfg.noise, "none">, AUDIO_SAMPLE_RATE) : null;
+  const bedGain = bed ? cfg.noiseVolume : 0;
 
   try {
     await output.start();
@@ -297,7 +355,9 @@ export async function renderVideo({
       if (signal?.aborted) throw new RenderCancelled();
 
       const t = i / fps;
-      if (audio && i % fps === 0) await audio.add(bellChunk(t, bells));
+      if (audio && i % fps === 0) {
+        await audio.add(audioChunk(t, bells, cfg.bellSound, bed, bedGain));
+      }
       drawFrame(ctx, W, H, tl, t, cfg, cfg.bg);
       await video.add(t, 1 / fps);
 

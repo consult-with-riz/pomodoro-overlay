@@ -205,7 +205,9 @@ export function drawFrame(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
-  const screen = mode === "green" || mode === "blue";
+  // Everything but "transparent" paints an opaque ground, which also means no
+  // soft shadow and no semi-transparent pixels — those key badly and fringe.
+  const screen = mode === "green" || mode === "blue" || mode === "black";
   if (screen) {
     ctx.fillStyle = SCREEN[mode];
     ctx.fillRect(0, 0, W, H);

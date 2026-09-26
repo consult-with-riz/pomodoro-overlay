@@ -5,10 +5,13 @@
  * changing a default changes what the tests compare against.
  */
 
+import type { BellVariant } from "./bell";
+import type { NoiseKind } from "./noise";
+
 export type Style = "ring" | "bar" | "digits";
 export type FontKey = "bsd" | "grotesk" | "mono" | "serif";
 export type Plate = "none" | "light" | "dark";
-export type Background = "green" | "blue" | "transparent";
+export type Background = "green" | "blue" | "black" | "transparent";
 export type Direction = "up" | "down";
 export type Resolution = "720" | "1080" | "2160";
 
@@ -45,6 +48,11 @@ export interface Settings {
   res: Resolution;
   fps: string;
   bell: boolean;
+  /** Which sound plays at each switch, in the live preview and the file. */
+  bellSound: BellVariant;
+  /** Ambient bed mixed into the exported audio. Silent by default. */
+  noise: NoiseKind;
+  noiseVolume: number;
   sound: boolean;
 }
 
@@ -75,6 +83,9 @@ export const DEFAULTS: Settings = {
   res: "1080",
   fps: "10",
   bell: true,
+  bellSound: "bell",
+  noise: "none",
+  noiseVolume: 0.3,
   sound: true,
 };
 
@@ -100,13 +111,136 @@ export const RES: Record<Resolution, [number, number]> = {
   "2160": [3840, 2160],
 };
 
-/** Broadcast chroma key colours. */
-export const SCREEN: Record<"green" | "blue", string> = {
+/**
+ * Opaque backgrounds the overlay can be laid on.
+ *
+ * Green and blue are the broadcast chroma key colours. Black is not keyed at
+ * all — editors drop it with a Screen blend mode, which needs no settings and
+ * leaves no coloured fringe, so it suits footage that already contains a lot
+ * of green or blue.
+ */
+export const SCREEN: Record<"green" | "blue" | "black", string> = {
   green: "#00B140",
   blue: "#0047BB",
+  black: "#000000",
 };
 
+/**
+ * Which format each editor can actually open.
+ *
+ * "Green MP4 / Blue MP4 / Transparent" is a question about codecs. The
+ * question people can answer is what they edit in — and getting it wrong is
+ * expensive, because Premiere and Final Cut cannot import VP9-with-alpha WebM
+ * at all. Someone picks Transparent because it sounds best, waits out the
+ * render, and their editor refuses the file.
+ */
+export interface EditorTarget {
+  id: string;
+  label: string;
+  bg: Background;
+  why: string;
+}
+
+export const EDITORS: EditorTarget[] = [
+  {
+    id: "premiere",
+    label: "Adobe Premiere Pro",
+    bg: "green",
+    why: "Premiere can't import WebM with alpha, so this uses a green screen MP4 you key with Ultra Key.",
+  },
+  {
+    id: "finalcut",
+    label: "Final Cut Pro",
+    bg: "green",
+    why: "Final Cut can't import WebM with alpha, so this uses a green screen MP4 you key with Keyer.",
+  },
+  {
+    id: "davinci",
+    label: "DaVinci Resolve",
+    bg: "transparent",
+    why: "Resolve reads WebM with alpha, so the overlay arrives already transparent — no keying needed.",
+  },
+  {
+    id: "obs",
+    label: "OBS Studio",
+    bg: "transparent",
+    why: "OBS reads WebM with alpha, so you can drop it straight in as a media source.",
+  },
+  {
+    id: "capcut",
+    label: "CapCut",
+    bg: "green",
+    why: "Green screen MP4 is the safe choice here; use CapCut's Chroma key to remove it.",
+  },
+  {
+    id: "screen",
+    label: "I'll use a Screen blend mode",
+    bg: "black",
+    why: "Black drops out under a Screen blend in any editor, with no keying and no coloured fringe.",
+  },
+];
+
 export const STORE_KEY = "pomodoro-overlay-settings-v1";
+
+/**
+ * One-click looks.
+ *
+ * Most people do not want to design a timer, they want to pick one. Presets
+ * only set values — every individual control stays available, and changing
+ * one simply deselects the preset.
+ */
+export interface StylePreset {
+  id: string;
+  label: string;
+  hint: string;
+  apply: Partial<Settings>;
+}
+
+export const STYLE_PRESETS: StylePreset[] = [
+  {
+    id: "minimal",
+    label: "Minimal",
+    hint: "Small ring, no card, out of the way.",
+    apply: {
+      style: "ring",
+      font: "grotesk",
+      plate: "none",
+      scale: 24,
+      showLabel: false,
+      showRound: false,
+      textColor: "#ffffff",
+    },
+  },
+  {
+    id: "bold",
+    label: "Bold",
+    hint: "Big digits on a dark card.",
+    apply: {
+      style: "digits",
+      font: "bsd",
+      plate: "dark",
+      scale: 40,
+      showLabel: true,
+      showRound: true,
+      textColor: "#ffffff",
+    },
+  },
+  {
+    id: "broadcast",
+    label: "Broadcast",
+    hint: "Lower-third bar with a progress track.",
+    apply: {
+      style: "bar",
+      font: "grotesk",
+      plate: "dark",
+      scale: 30,
+      pos: "bl",
+      showLabel: true,
+      showRound: true,
+      textColor: "#ffffff",
+    },
+  },
+];
 
 /** Settings that change the shape of the timeline rather than just its look. */
 export const SESSION_KEYS = new Set<keyof Settings>([

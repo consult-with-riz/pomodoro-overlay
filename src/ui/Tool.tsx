@@ -16,11 +16,15 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { BELL_LABELS, BellPlayer, type BellVariant } from "../bell";
 import { drawFrame, hsl } from "../draw";
+import { NOISE_HINTS, NOISE_LABELS, type NoiseKind } from "../noise";
 import { LiveTimer } from "../live";
 import {
   DEFAULTS,
+  EDITORS,
   RES,
+  STYLE_PRESETS,
   loadSettings,
   saveSettings,
   type Background,
@@ -43,6 +47,7 @@ import {
   type Capabilities,
   type RenderResult,
 } from "../export";
+import Backdrop from "./Backdrop";
 import EmailCapture from "./EmailCapture";
 
 type StatusKind = "" | "ok" | "err";
@@ -67,6 +72,10 @@ export default function Tool() {
     kind: "",
   });
   const [result, setResult] = useState<RenderResult | null>(null);
+  const [editor, setEditor] = useState<string>(EDITORS[0].id);
+  /** A still from the user's footage, shown behind the preview only. */
+  const [backdrop, setBackdrop] = useState<string | null>(null);
+  const previewBell = useRef<BellPlayer | null>(null);
 
   const timeline: Timeline = useMemo(() => buildTimeline(settings), [settings]);
 
@@ -83,8 +92,10 @@ export default function Tool() {
   // The rAF loop reads these rather than closing over stale props.
   const liveSettings = useRef(settings);
   const liveTimeline = useRef(timeline);
+  const liveBackdrop = useRef<string | null>(null);
   liveSettings.current = settings;
   liveTimeline.current = timeline;
+  liveBackdrop.current = backdrop;
 
   /* ---------- settings persistence ---------- */
 
@@ -191,6 +202,9 @@ export default function Tool() {
 
       // The preview always draws transparent and lets the stage's CSS show the
       // chosen screen colour, so the keying warnings are visible as you set up.
+      // Over a still, always draw transparent: that is what the overlay looks
+      // like on the footage once the screen colour has been keyed out.
+      const overFootage = liveBackdrop.current !== null;
       const transparent = s.bg === "transparent";
       drawFrame(
         ctx,
@@ -199,7 +213,7 @@ export default function Tool() {
         tl,
         p,
         { ...s, shadow: transparent ? s.shadow : false },
-        transparent ? "transparent" : s.bg
+        overFootage || transparent ? "transparent" : s.bg
       );
 
       const pct = tl.total ? p / tl.total : 0;
@@ -222,6 +236,16 @@ export default function Tool() {
 
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
+  }, []);
+
+  /* ---------- auditioning the bell ---------- */
+
+  useEffect(() => {
+    previewBell.current = new BellPlayer();
+    return () => {
+      previewBell.current?.close();
+      previewBell.current = null;
+    };
   }, []);
 
   /* ---------- capability probe ---------- */
@@ -367,9 +391,51 @@ export default function Tool() {
 
   const est = useMemo(() => estimate(settings), [settings]);
 
+  /** A preset is "active" while every value it sets is still in place. */
+  const activePreset = useMemo(() => {
+    const match = STYLE_PRESETS.find((p) =>
+      (Object.keys(p.apply) as (keyof Settings)[]).every(
+        (k) => settings[k] === p.apply[k]
+      )
+    );
+    return match?.id ?? "custom";
+  }, [settings]);
+
+  /*
+   * The editor select follows the background rather than fighting it. Choosing
+   * an editor sets the format; changing the format by hand moves the select to
+   * an editor that matches, so the explanation underneath is never a lie.
+   */
+  const editorValue = useMemo(() => {
+    const chosen = EDITORS.find((x) => x.id === editor);
+    if (chosen && chosen.bg === settings.bg) return chosen.id;
+    return EDITORS.find((x) => x.bg === settings.bg)?.id ?? EDITORS[0].id;
+  }, [editor, settings.bg]);
+
   const colourWarning = useMemo(() => {
     if (settings.bg === "transparent") return "";
     const warnings: string[] = [];
+
+    if (settings.bg === "black") {
+      // A Screen blend keeps a pixel in proportion to how bright it is, so
+      // dark colours quietly vanish instead of being keyed cleanly.
+      const dark = (hex: string) => hsl(hex)[2] < 0.3;
+      const names: string[] = [];
+      if (dark(settings.textColor)) names.push("text");
+      if (dark(settings.focusColor)) names.push("focus");
+      if (dark(settings.breakColor)) names.push("break");
+      if (names.length) {
+        warnings.push(
+          `Your ${names.join(" and ")} ${names.length > 1 ? "colours are" : "colour is"} ` +
+            `dark, and a Screen blend will make dark pixels nearly invisible. Lighten ` +
+            `${names.length > 1 ? "them" : "it"} or pick a green screen instead.`
+        );
+      }
+      if (settings.plate === "light") {
+        warnings.push("A light card stays almost fully opaque under a Screen blend, which hides your footage behind it.");
+      }
+      return warnings.join(" ");
+    }
     // Saturated mid-lightness colours near the screen hue get keyed out with it.
     const clashes = (hex: string) => {
       const [h, s, l] = hsl(hex);
@@ -412,7 +478,9 @@ export default function Tool() {
   const bgHint =
     settings.bg === "transparent"
       ? "Saves a WebM with a real alpha channel. Works in OBS, DaVinci Resolve, Kdenlive, Shotcut and browsers. Premiere Pro and Final Cut need the green MP4 instead."
-      : `Saves an MP4 on solid ${settings.bg}. Drop it above your footage and key out the ${settings.bg} with your editor's chroma key. Works everywhere.`;
+      : settings.bg === "black"
+        ? "Saves an MP4 on solid black. Put it above your footage and set the layer to a Screen blend mode — no keying, no coloured fringe. Dark parts of the overlay will fade out too, so it suits bright timers."
+        : `Saves an MP4 on solid ${settings.bg}. Drop it above your footage and key out the ${settings.bg} with your editor's chroma key. Works everywhere.`;
 
   const startLabel = running ? "Pause" : atStart ? "Start" : "Resume";
 
@@ -451,8 +519,10 @@ export default function Tool() {
           </a>
           <h1>Pomodoro timer</h1>
           <p>
-            Run it here while you work, or render the same timer as a video to lay
-            over your footage. Everything happens in this tab — nothing is uploaded.
+            Render the timer as a green screen MP4 or a WebM with real
+            transparency, to lay over your footage. Everything happens in this
+            tab — nothing is uploaded.{" "}
+            <a href="/">Just want to focus? Use the plain timer →</a>
           </p>
         </div>
       </header>
@@ -464,6 +534,11 @@ export default function Tool() {
           ref={stageRef}
           data-bg={settings.bg}
         >
+          {backdrop && (
+            // Behind the canvas, because drawFrame clears its context every
+            // frame and would wipe anything drawn underneath.
+            <img className="stage__backdrop" src={backdrop} alt="" aria-hidden="true" />
+          )}
           <canvas ref={canvasRef} aria-label="Timer preview" />
           <span className="stage-tag">
             {settings.bg === "green"
@@ -618,6 +693,26 @@ export default function Tool() {
 
         <section>
           <h2>Look</h2>
+          <span className="lbl">Start from a preset</span>
+          <div className="presets" role="group" aria-label="Style preset">
+            {STYLE_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={"chip" + (activePreset === p.id ? " chip--on" : "")}
+                aria-pressed={activePreset === p.id}
+                title={p.hint}
+                onClick={() => update(p.apply)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="hint" style={{ marginBottom: 14 }}>
+            {STYLE_PRESETS.find((p) => p.id === activePreset)?.hint ??
+              "Every control below stays yours to change — a preset is only a starting point."}
+          </p>
+
           <span className="lbl">Style</span>
           <div
             className="seg"
@@ -724,8 +819,37 @@ export default function Tool() {
         </section>
 
         <section>
+          <h2>Check it over your footage</h2>
+          <Backdrop value={backdrop} onChange={setBackdrop} />
+        </section>
+
+        <section>
           <h2>Export video</h2>
-          <span className="lbl">Background</span>
+
+          {/* The question people can answer, rather than one about codecs. */}
+          <label className="field">
+            <span>What will you edit in?</span>
+            <select
+              value={editorValue}
+              onChange={(e) => {
+                const target = EDITORS.find((x) => x.id === e.target.value);
+                if (!target) return;
+                setEditor(target.id);
+                update({ bg: target.bg });
+              }}
+            >
+              {EDITORS.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="hint">{EDITORS.find((x) => x.id === editorValue)?.why}</p>
+
+          <span className="lbl" style={{ display: "block", marginTop: 14 }}>
+            Background
+          </span>
           <div
             className="seg"
             role="radiogroup"
@@ -734,9 +858,10 @@ export default function Tool() {
           >
             {(
               [
-                ["green", "Green MP4"],
-                ["blue", "Blue MP4"],
-                ["transparent", "Transparent"],
+                ["green", "Green"],
+                ["blue", "Blue"],
+                ["black", "Black"],
+                ["transparent", "Clear"],
               ] as const
             ).map(([v, label]) => (
               <label key={v}>
@@ -784,9 +909,64 @@ export default function Tool() {
             once it&rsquo;s in your edit, and renders about three times faster.
           </p>
           <label className="check">
-            <input type="checkbox" {...check("bell")} /> Add a bell to the audio at
+            <input type="checkbox" {...check("bell")} /> Add a sound to the audio at
             every switch
           </label>
+          {settings.bell && (
+            <div className="grid2" style={{ marginTop: 10 }}>
+              <label className="field">
+                <span>Sound</span>
+                <select
+                  value={settings.bellSound}
+                  onChange={(e) => {
+                    const v = e.target.value as BellVariant;
+                    update({ bellSound: v });
+                    previewBell.current?.ring(v);
+                  }}
+                >
+                  {Object.entries(BELL_LABELS).map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
+          <label className="field" style={{ marginTop: 14 }}>
+            <span>Background sound in the video</span>
+            <select
+              value={settings.noise}
+              onChange={(e) => update({ noise: e.target.value as NoiseKind })}
+            >
+              {Object.entries(NOISE_LABELS).map(([v, label]) => (
+                <option key={v} value={v}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {settings.noise !== "none" && (
+            <label className="field" style={{ marginTop: 10 }}>
+              <span>Level {Math.round(settings.noiseVolume * 100)}%</span>
+              <input
+                className="slider"
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(settings.noiseVolume * 100)}
+                onChange={(e) => update({ noiseVolume: Number(e.target.value) / 100 })}
+              />
+            </label>
+          )}
+          <p className="hint">
+            {settings.noise === "none"
+              ? "Silent by default. Most editors prefer to add their own ambience on a separate track."
+              : `${NOISE_HINTS[settings.noise]} It is mixed into the file for the whole session — ` +
+                `noise cannot be compressed, so it adds about ${Math.round(est.audioBytes / 1048576)} MB here ` +
+                `and can't be separated out later.`}
+          </p>
 
           <dl className="facts">
             <div>
@@ -801,6 +981,15 @@ export default function Tool() {
               <dt>Size</dt>
               <dd>
                 {est.width} × {est.height}
+              </dd>
+            </div>
+            <div>
+              <dt>Rough size</dt>
+              <dd>
+                {est.approxBytes > 1048576
+                  ? `~${Math.round(est.approxBytes / 1048576)} MB`
+                  : "< 1 MB"}
+                {est.bedOn ? ` (${Math.round(est.audioBytes / 1048576)} MB audio)` : ""}
               </dd>
             </div>
             <div>

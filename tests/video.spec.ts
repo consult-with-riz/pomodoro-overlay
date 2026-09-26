@@ -135,6 +135,75 @@ test.describe("encoded output", () => {
     expect(alphaAt(png.width - 1, png.height - 1), "bottom-right alpha").toBe(0);
   });
 
+  test("black output is opaque black, not transparent", async ({ page }) => {
+    test.setTimeout(RENDER_TIMEOUT);
+
+    const settings = settingsFor({ name: "video", t: 0 });
+    const file = OUTPUT + "black-720p.mp4";
+    await writeFile(file, await renderInPage(page, { ...settings, bg: "black" }));
+
+    const info = await probe(file);
+    expect(info.streams.find((s) => s.codec_name === "h264"), "an h264 stream").toBeTruthy();
+
+    const frame = OUTPUT + "black-corner.png";
+    await run(ffmpegPath!, [
+      "-y", "-v", "error",
+      "-ss", "5",
+      "-i", file,
+      "-vframes", "1",
+      "-pix_fmt", "rgba",
+      frame,
+    ]);
+
+    const png = PNG.sync.read(await readFile(frame));
+    const at = (x: number, y: number) => {
+      const i = (png.width * y + x) << 2;
+      return [png.data[i], png.data[i + 1], png.data[i + 2], png.data[i + 3]];
+    };
+
+    const [r, g, b, a] = at(4, 4);
+    // Opaque, and black rather than the green screen colour. A Screen blend
+    // in an editor relies on this being genuinely black.
+    expect(a).toBe(255);
+    expect(Math.max(r, g, b)).toBeLessThan(12);
+  });
+
+  test("an ambient bed is actually written into the audio", async ({ page }) => {
+    test.setTimeout(RENDER_TIMEOUT);
+
+    // One minute, so two renders stay quick.
+    const base = {
+      ...settingsFor({ name: "video", t: 0 }),
+      focusMin: 1,
+      breakMin: 0,
+      rounds: 1,
+      leadSec: 0,
+      outroSec: 0,
+      bg: "green",
+    };
+
+    const silent = await renderInPage(page, { ...base, noise: "none" });
+    const withBed = await renderInPage(page, {
+      ...base,
+      noise: "brown",
+      noiseVolume: 0.3,
+    });
+
+    await writeFile(OUTPUT + "bed-off.mp4", silent);
+    await writeFile(OUTPUT + "bed-on.mp4", withBed);
+
+    const info = await probe(OUTPUT + "bed-on.mp4");
+    expect(info.streams.find((s) => s.codec_type === "audio"), "an audio stream").toBeTruthy();
+
+    // Noise is incompressible, so a continuous bed has to cost real bytes.
+    // If it were silently dropped the two files would be about the same size.
+    const grew = withBed.length - silent.length;
+    expect(
+      grew,
+      `bed added only ${(grew / 1024).toFixed(0)}KB over 60s — it may not be in the file`
+    ).toBeGreaterThan(200_000);
+  });
+
   test("a frame from the video matches the golden for that moment", async ({ page }) => {
     test.setTimeout(RENDER_TIMEOUT);
 
