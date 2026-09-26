@@ -16,6 +16,9 @@ const Tool = dynamic(() => import("./Tool"), {
     <div className="app">
       <header className="head">
         <div className="brand">
+          <a className="wordmark" href="https://aiwithriz.com">
+            Riz
+          </a>
           <h1>Pomodoro timer</h1>
           <p>Loading…</p>
         </div>

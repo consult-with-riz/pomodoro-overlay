@@ -28,6 +28,8 @@ const FAMILIES = [
   "Instrument+Serif:wght@400",
   "JetBrains+Mono:wght@500;700",
   "Schibsted+Grotesk:wght@400;500;600;700",
+  // UI only — the page chrome, matching aiwithriz.com. Not a renderer font.
+  "Wix+Madefor+Text:wght@400;500;600;700",
 ];
 
 const KEEP_SUBSETS = new Set(["latin", "latin-ext"]);
