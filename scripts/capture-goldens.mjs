@@ -95,10 +95,15 @@ try {
     const timeline = buildTimeline(settings);
     const at = (t) => {
       const state = stateAt(timeline, t);
+      // The end screen always reads zero regardless of count direction. The
+      // prototype does this in both drawFrame and its live tick; it has to be
+      // repeated here because the prototype doesn't expose it as a function.
       const secs =
-        settings.direction === "up"
-          ? Math.floor(state.local)
-          : state.seg.dur - Math.floor(state.local);
+        state.seg.kind === "done"
+          ? 0
+          : settings.direction === "up"
+            ? Math.floor(state.local)
+            : state.seg.dur - Math.floor(state.local);
       return { kind: state.seg.kind, round: state.seg.round, clock: fmtClock(secs, timeline.hours) };
     };
     return {

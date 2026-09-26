@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The ring style, which is the tool's default and its most recognisable mark. -->
+  <rect width="64" height="64" rx="14" fill="#16201C"/>
+  <circle cx="32" cy="34" r="19" fill="none" stroke="#3B4A43" stroke-width="6"/>
+  <path d="M32 15 a19 19 0 0 1 16.5 9.5" fill="none" stroke="#FF5A3C" stroke-width="6" stroke-linecap="round"/>
+  <path d="M27 11 q5 -5 10 0" fill="none" stroke="#2C6A4E" stroke-width="4" stroke-linecap="round"/>
+</svg>

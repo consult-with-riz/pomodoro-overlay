@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # ffmpeg and ffprobe come from npm, so nothing is installed system-wide
+      # and CI encodes with the same binaries a laptop does.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Runs the golden frames, the encoded-output checks and the app smoke
+      # tests. The Playwright config builds and starts the app itself.
+      - name: Test
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: failures
+          path: |
+            test-results/
+            tests/output/*.png
+          retention-days: 7

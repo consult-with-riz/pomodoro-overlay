@@ -39,9 +39,10 @@ const Tool = dynamic(() => import("@/src/ui/Tool"), { ssr: false });
 Anything touching `VideoEncoder`, `AudioContext`, `canvas`, or `localStorage` sits
 behind that boundary.
 
-## Structure to aim for
+## Structure
 React wraps the controls. The render core stays plain TypeScript with no React and
 no DOM in it, so it can be tested directly and moved into a worker later.
+Nothing under `src/` outside `src/ui/` may import React.
 
 ```
 app/

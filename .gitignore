@@ -11,3 +11,7 @@ tests/output/
 
 # derived from the prototype by scripts/build-harness.mjs
 reference/prototype-harness.html
+
+# build artefacts
+tsconfig.tsbuildinfo
+next-env.d.ts

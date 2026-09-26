@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>core under test</title>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>body{margin:0;background:#222}</style>
+</head>
+<body>
+<!--
+  Bare page for testing the render core against the golden frames.
+
+  It loads the same pinned fonts the app ships and nothing else, so a golden
+  failure points at src/draw.ts rather than at anything in the UI.
+  The bundle is built by scripts/build-test-bundle.mjs.
+-->
+<script src="/tests/output/core.js"></script>
+<script>
+window.__coreReady = (async () => {
+  await document.fonts.ready;
+  const pending = [];
+  for (const f of Object.values(window.__core.FONTS)) {
+    pending.push(document.fonts.load(`${f.num} 100px ${f.family}`));
+    pending.push(document.fonts.load(`${f.lab} 100px ${f.family}`));
+  }
+  await Promise.all(pending);
+  return true;
+})();
+
+// Draw one case and hand back a PNG data URL, mirroring how the goldens were
+// captured from the prototype.
+window.__render = (settings, t, W, H) => {
+  const { drawFrame, buildTimeline } = window.__core;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d", { alpha: true });
+  drawFrame(ctx, W, H, buildTimeline(settings), t, settings, settings.bg);
+  return canvas.toDataURL("image/png");
+};
+</script>
+</body>
+</html>

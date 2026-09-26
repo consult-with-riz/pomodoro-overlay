@@ -7,7 +7,7 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { join, normalize, extname } from "node:path";
+import { join, normalize, extname, resolve } from "node:path";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -72,7 +72,9 @@ export function serve(port = 0) {
 }
 
 // Allow running it directly for manual poking: `node scripts/serve.mjs 4000`
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compared via fileURLToPath because import.meta.url percent-encodes spaces in
+// the path and argv[1] does not.
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const { url } = await serve(Number(process.argv[2]) || 4000);
   console.log(`Serving ${ROOT} at ${url}`);
 }
