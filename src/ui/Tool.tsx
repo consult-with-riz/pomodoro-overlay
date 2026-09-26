@@ -389,6 +389,26 @@ export default function Tool() {
 
   /* ---------- derived copy ---------- */
 
+  /** One entry per kind of segment in the session, in the order they occur. */
+  const legend = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const seg of timeline.segs) {
+      if (!seen.has(seg.kind)) seen.set(seg.kind, seg.dur);
+    }
+    const colour: Record<string, string> = {
+      lead: "var(--line)",
+      focus: settings.focusColor,
+      break: settings.breakColor,
+      done: "var(--ink)",
+    };
+    return [...seen].map(([kind, dur]) => ({
+      kind,
+      dur,
+      color: colour[kind],
+      label: labelFor(kind as Parameters<typeof labelFor>[0], settings),
+    }));
+  }, [timeline, settings]);
+
   const est = useMemo(() => estimate(settings), [settings]);
 
   /** A preset is "active" while every value it sets is still in place. */
@@ -599,6 +619,23 @@ export default function Tool() {
               />
             ))}
           </div>
+          {/*
+            Boundary ticks, drawn over the bar rather than inside it.
+
+            A 10s lead-in on an hour-long session is 2px wide, so the divisions
+            are invisible. Widening those blocks would be the obvious fix and
+            the wrong one: the playhead and the scrub slider both map position
+            linearly across this bar, so any distortion desyncs them from the
+            blocks. These sit on top and cost the layout nothing.
+          */}
+          {timeline.segs.slice(1).map((seg, i) => (
+            <span
+              key={i}
+              className="tick"
+              style={{ left: `${(seg.start / timeline.total) * 100}%` }}
+              aria-hidden="true"
+            />
+          ))}
           <div className="playhead" ref={playheadRef} />
           <input
             ref={scrubRef}
@@ -617,6 +654,18 @@ export default function Tool() {
             <span ref={phaseRef} />
             <span>{fmtLen(timeline.total)}</span>
           </div>
+
+          {/* What the bar is made of, with the lengths spelled out — the only
+              honest way to show a 10 second segment on an hour-long bar. */}
+          <ul className="legend">
+            {legend.map((item) => (
+              <li key={item.kind}>
+                <i style={{ background: item.color }} aria-hidden="true" />
+                {item.label}
+                <b>{fmtLen(item.dur)}</b>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 

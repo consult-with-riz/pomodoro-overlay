@@ -94,6 +94,7 @@ export default function Focus() {
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(false);
   const [idle, setIdle] = useState(false);
 
   const engine = useMemo(() => toEngineSettings(settings), [settings]);
@@ -108,6 +109,7 @@ export default function Focus() {
   const anchorPos = useRef(0);
   const lastSeg = useRef(0);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const soundRef = useRef<HTMLDivElement>(null);
 
   const liveSettings = useRef(settings);
   liveSettings.current = settings;
@@ -339,7 +341,7 @@ export default function Focus() {
     const wake = () => {
       setIdle(false);
       if (idleTimer.current) clearTimeout(idleTimer.current);
-      if (liveRunning.current && !panelOpen) {
+      if (liveRunning.current && !panelOpen && !soundOpen) {
         idleTimer.current = setTimeout(() => setIdle(true), IDLE_MS);
       }
     };
@@ -351,7 +353,16 @@ export default function Focus() {
       window.removeEventListener("keydown", wake);
       if (idleTimer.current) clearTimeout(idleTimer.current);
     };
-  }, [running, panelOpen]);
+  }, [running, panelOpen, soundOpen]);
+
+  useEffect(() => {
+    if (!soundOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!soundRef.current?.contains(e.target as Node)) setSoundOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [soundOpen]);
 
   /* ---------- keyboard ---------- */
 
@@ -372,6 +383,7 @@ export default function Focus() {
         else void document.documentElement.requestFullscreen?.().catch(() => {});
       } else if (e.key === "Escape") {
         setPanelOpen(false);
+        setSoundOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -459,6 +471,7 @@ export default function Focus() {
         </nav>
       </header>
 
+      <div className="focus__middle">
       <section className="focus__stage">
         <div className="dial">
           <svg viewBox="0 0 100 100" aria-hidden="true">
@@ -541,6 +554,56 @@ export default function Focus() {
           <button className="btn" type="button" onClick={skip}>
             Skip
           </button>
+
+          {/*
+            Background sound inline, because it is the one thing people change
+            per session. Everything you set once — theme, bell, session lengths —
+            stays in the sheet. One collapsed pill, so the page is not a control
+            panel until you ask it to be.
+          */}
+          <div className="sound" ref={soundRef}>
+            <button
+              type="button"
+              className={"chip" + (settings.noise !== "none" ? " chip--on" : "")}
+              aria-expanded={soundOpen}
+              aria-haspopup="true"
+              onClick={() => setSoundOpen((v) => !v)}
+            >
+              {settings.noise === "none" ? "Sound off" : NOISE_LABELS[settings.noise]}
+            </button>
+
+            {soundOpen && (
+              <div className="sound__pop" role="group" aria-label="Background sound">
+                {(Object.keys(NOISE_LABELS) as NoiseKind[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={"sound__opt" + (settings.noise === k ? " sound__opt--on" : "")}
+                    aria-pressed={settings.noise === k}
+                    onClick={() => update({ noise: k })}
+                  >
+                    {k === "none" ? "Off" : NOISE_LABELS[k]}
+                  </button>
+                ))}
+                <label className="sound__vol">
+                  <span>Level</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(settings.noiseVolume * 100)}
+                    onChange={(e) => update({ noiseVolume: Number(e.target.value) / 100 })}
+                    aria-label="Background sound level"
+                  />
+                </label>
+                <p className="sound__hint">
+                  {settings.noise === "none"
+                    ? "Plays only while the timer is running."
+                    : NOISE_HINTS[settings.noise]}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="focus__presets" role="group" aria-label="Session length">
@@ -561,6 +624,7 @@ export default function Focus() {
           <kbd>Space</kbd> start · <kbd>S</kbd> skip · <kbd>R</kbd> reset · <kbd>F</kbd> full screen
         </p>
       </footer>
+      </div>
 
       {/* A slide-over, not a sidebar. The page must never need it to be usable. */}
       <aside className={"sheet" + (panelOpen ? " sheet--open" : "")} aria-label="Settings" aria-hidden={!panelOpen}>

@@ -136,6 +136,36 @@ test.describe("focus timer", () => {
     expect(spread, `clock width varies by ${spread.toFixed(2)}px across digits`).toBeLessThan(0.5);
   });
 
+  test("everything fits without scrolling", async ({ page }) => {
+    // A laptop viewport. The shortcut line used to fall below the fold.
+    for (const height of [760, 860, 960]) {
+      await page.setViewportSize({ width: 1440, height });
+      await page.goto(APP, { waitUntil: "networkidle" });
+      await page.waitForTimeout(400);
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollHeight - window.innerHeight
+      );
+      expect(overflow, `page scrolls by ${overflow}px at ${height}px tall`).toBeLessThanOrEqual(0);
+      await expect(page.locator(".focus__keys")).toBeInViewport();
+    }
+  });
+
+  test("background sound can be changed without opening settings", async ({ page }) => {
+    await page.goto(APP, { waitUntil: "networkidle" });
+
+    // The thing people change per session is inline; what you set once is not.
+    await page.getByRole("button", { name: "Sound off" }).click();
+    await page.getByRole("button", { name: "Brown noise", exact: true }).click();
+    await expect(page.locator(".sound > .chip")).toHaveText("Brown noise");
+    await expect(page.locator(".sheet--open")).toHaveCount(0);
+
+    // The popover must not sit over the primary action.
+    await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
+    await page.getByRole("button", { name: "Start" }).click();
+    await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  });
+
   test("the task name is kept", async ({ page }) => {
     await page.goto(APP, { waitUntil: "networkidle" });
     await page.getByPlaceholder("What are you working on?").fill("Write the script");

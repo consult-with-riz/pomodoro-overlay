@@ -131,6 +131,28 @@ test.describe("overlay maker", () => {
     await expect(page.getByText(/Screen blend will make dark pixels/)).toBeVisible();
   });
 
+  test("the timeline names all four parts even when two are seconds long", async ({ page }) => {
+    await page.goto(OVERLAY, { waitUntil: "networkidle" });
+
+    // On the default session a 10s lead-in is about 2px of an hour-long bar
+    // and the 5s end screen is 1px. Widening them would desync the playhead,
+    // which maps linearly, so the structure is carried by the legend instead.
+    const items = await page.locator(".legend li").allTextContents();
+    expect(items).toHaveLength(4);
+    expect(items.join(" ")).toContain("Get ready");
+    expect(items.join(" ")).toContain("0:10");
+    expect(items.join(" ")).toContain("0:05");
+
+    // One tick per boundary between the four segments.
+    await expect(page.locator(".tick")).toHaveCount(3);
+
+    // And the bar itself stays proportional, so scrubbing is still honest.
+    const widths = await page.locator(".strip div").evaluateAll((els) =>
+      els.map((e) => e.getBoundingClientRect().width)
+    );
+    expect(widths[1] / widths[2]).toBeGreaterThan(4);
+  });
+
   test("warns when a colour would be keyed out with the screen", async ({ page }) => {
     await page.goto(OVERLAY, { waitUntil: "networkidle" });
 
