@@ -446,6 +446,9 @@ export default function Tool() {
     <div className="app">
       <header className="head">
         <div className="brand">
+          <a className="wordmark" href="https://aiwithriz.com">
+            Riz
+          </a>
           <h1>Pomodoro timer</h1>
           <p>
             Run it here while you work, or render the same timer as a video to lay
