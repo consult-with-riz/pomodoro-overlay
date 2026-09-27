@@ -209,18 +209,16 @@ test.describe("focus timer", () => {
     await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   });
 
-  test("the tip link waits until a session has actually delivered something", async ({ page }) => {
+  test("the tip link is there for the whole of a running session", async ({ page }) => {
     await page.goto(APP, { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "Start" }).click();
-    await page.waitForTimeout(600);
 
-    // Asking thirty seconds after someone pressed Start is asking before
-    // anything has been given, so there is a threshold.
+    // Not before the timer runs: there is nothing to have helped with yet.
     await expect(page.locator(".focus__idletip")).toHaveCount(0);
 
-    // Past it — Skip jumps to the break, well beyond five minutes in.
-    await page.getByRole("button", { name: "Skip" }).click();
-    await expect(page.locator(".focus__idletip")).toHaveCount(1);
+    // And from the moment it does, not some way into it. A delay here made
+    // the link impossible to find.
+    await page.getByRole("button", { name: "Start" }).click();
+    await expect(page.locator(".focus__idletip")).toBeVisible();
   });
 
   test("the in-session tip link stays reachable when the chrome fades", async ({ page }) => {

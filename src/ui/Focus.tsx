@@ -43,15 +43,6 @@ import TipLink, { tipEnabled } from "./TipLink";
 /** How long the controls linger after the pointer stops, while running. */
 const IDLE_MS = 4000;
 
-/**
- * How much of a session has to pass before the tip line appears.
- *
- * Someone who closes the tab at minute twelve never reaches the completion
- * state, which is where the only other ask lives — so it has to be visible
- * during a session too. Five minutes in, because asking thirty seconds after
- * someone pressed Start is asking before anything has been delivered.
- */
-const TIP_AFTER_SECONDS = 5 * 60;
 
 /** The engine's settings type, filled from the focus settings. */
 function toEngineSettings(s: FocusSettings): Settings {
@@ -466,11 +457,17 @@ export default function Focus() {
       }
     >
       {/*
-        Stays visible whether or not the chrome has faded. Tying it to the
-        idle state alone makes it unclickable: reaching for it moves the
-        pointer, which wakes the page, which fades it back out.
+        Present for the whole of a running session.
+
+        Stays visible whether or not the chrome has faded — tying it to the
+        idle state alone makes it unclickable, because reaching for it moves
+        the pointer, which wakes the page, which fades it back out.
+
+        There was a five minute delay here on the reasoning that asking
+        before delivering anything reads as grabby. In practice it made the
+        thing impossible to find, which is worse.
       */}
-      {tipEnabled() && running && position >= TIP_AFTER_SECONDS && (
+      {tipEnabled() && running && (
         <div className="focus__idletip">
           <TipLink variant="idle">If this is helping, you can tip</TipLink>
         </div>
