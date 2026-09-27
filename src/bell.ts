@@ -177,6 +177,34 @@ export class BellPlayer {
     return buf;
   }
 
+  /**
+   * A short, soft blip used once to point at something on screen.
+   *
+   * Deliberately nothing like the bell: lower, quieter and over in a tenth
+   * of a second. The bell means a phase changed, and that meaning is worth
+   * protecting — a second sound that resembled it would muddy both.
+   */
+  blip(): void {
+    this.unlock();
+    if (!this.ctx || !this.gain) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, now);
+
+    const env = this.ctx.createGain();
+    // Quiet against the bell, and faded rather than cut so it cannot click.
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.12, now + 0.012);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+    osc.connect(env);
+    env.connect(this.gain);
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+
   ring(variant: BellVariant = "bell"): void {
     if (variant === "none") return;
     this.unlock();

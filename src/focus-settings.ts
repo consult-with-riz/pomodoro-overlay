@@ -122,6 +122,32 @@ export const FOCUS_DEFAULTS: FocusSettings = {
 };
 
 export const FOCUS_STORE_KEY = "pomodoro-focus-settings-v1";
+
+/**
+ * Whether the one-time nudge towards the tip line has been shown.
+ *
+ * Once, not every session. Someone who uses this daily would otherwise be
+ * pointed at a payment request every morning, which is the difference
+ * between drawing attention and nagging.
+ */
+const NUDGED_KEY = "pomodoro-focus-nudged-v1";
+
+export function hasBeenNudged(): boolean {
+  try {
+    return localStorage.getItem(NUDGED_KEY) === "1";
+  } catch {
+    // Storage blocked: treat it as already shown rather than show it forever.
+    return true;
+  }
+}
+
+export function markNudged(): void {
+  try {
+    localStorage.setItem(NUDGED_KEY, "1");
+  } catch {
+    // nothing to do
+  }
+}
 const SESSION_KEY = "pomodoro-focus-session-v1";
 
 export function loadFocusSettings(): FocusSettings {

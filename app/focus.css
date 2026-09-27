@@ -220,6 +220,22 @@
   z-index:5;transition:opacity .8s ease;opacity:.34;
 }
 .focus__idletip:hover{opacity:1}
+
+/*
+  The one-time nudge. Brought fully up for a moment, with a small arrow
+  bouncing above the line, then handed back to the ordinary faint state by
+  the same transition that governs it the rest of the time.
+*/
+.focus__idletip--nudge{opacity:1}
+.nudge{
+  display:block;width:22px;height:13px;margin:0 auto 2px;
+  color:var(--phase-accent);
+  animation:nudge-in .32s ease-out both, nudge-bob 1.1s ease-in-out .32s 2,
+            nudge-out .5s ease-in 2.7s both;
+}
+@keyframes nudge-in{ from{opacity:0;transform:translateY(-7px)} to{opacity:1;transform:none} }
+@keyframes nudge-bob{ 0%,100%{transform:none} 50%{transform:translateY(4px)} }
+@keyframes nudge-out{ to{opacity:0} }
 .focus--idle .focus__idletip{opacity:.6}
 .focus .focus__idletip .tip{font-size:13px;opacity:1}
 
@@ -297,6 +313,8 @@
    trade, so motion goes entirely when the system asks for less of it. */
 @media (prefers-reduced-motion: reduce){
   .focus,.focus--motion{animation:none!important;transition:none!important}
+  /* Still shown, just held still rather than bouncing. */
+  .nudge{animation:none!important;opacity:1}
   .dial__progress{transition:none!important}
   .sheet{transition:none!important}
 }

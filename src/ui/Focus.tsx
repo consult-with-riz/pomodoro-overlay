@@ -20,8 +20,10 @@ import {
   PRESETS,
   THEMES,
   clearSession,
+  hasBeenNudged,
   loadFocusSettings,
   loadSession,
+  markNudged,
   saveFocusSettings,
   saveSession,
   sessionSignature,
@@ -97,6 +99,8 @@ export default function Focus() {
   const [finished, setFinished] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
+  /** The one-time pointer at the tip line, shown just after the first Start. */
+  const [nudging, setNudging] = useState(false);
   const [idle, setIdle] = useState(false);
 
   const engine = useMemo(() => toEngineSettings(settings), [settings]);
@@ -257,6 +261,18 @@ export default function Focus() {
     liveRunning.current = true;
     setRunning(true);
     setFinished(false);
+
+    // A single pointer at the tip line, the first time anyone starts a
+    // session. Not on every start: being shown a payment request at the
+    // beginning of every working day is nagging rather than attention.
+    if (tipEnabled() && !hasBeenNudged()) {
+      markNudged();
+      setNudging(true);
+      // Skipped entirely if the bell is set to silent — that is someone
+      // asking for no sound, and this is not an exception to it.
+      if (liveSettings.current.bell !== "none") bell.current?.blip();
+      window.setTimeout(() => setNudging(false), 3200);
+    }
   }, []);
 
   const pause = useCallback(() => {
@@ -468,7 +484,19 @@ export default function Focus() {
         thing impossible to find, which is worse.
       */}
       {tipEnabled() && running && (
-        <div className="focus__idletip">
+        <div className={"focus__idletip" + (nudging ? " focus__idletip--nudge" : "")}>
+          {nudging && (
+            <svg className="nudge" viewBox="0 0 24 14" aria-hidden="true">
+              <path
+                d="M4 3l8 8 8-8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
           <TipLink variant="idle">If this is helping, you can tip</TipLink>
         </div>
       )}

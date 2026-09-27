@@ -221,6 +221,42 @@ test.describe("focus timer", () => {
     await expect(page.locator(".focus__idletip")).toBeVisible();
   });
 
+  test("the tip line is pointed at once, on a first session only", async ({ page }) => {
+    await page.goto(APP, { waitUntil: "networkidle" });
+    await expect(page.locator(".nudge")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Start" }).click();
+    await expect(page.locator(".nudge")).toHaveCount(1);
+    // Brought fully up for the moment, rather than left at its usual whisper.
+    await expect
+      .poll(() =>
+        page.locator(".focus__idletip").evaluate((e) => Number(getComputedStyle(e).opacity))
+      )
+      .toBeGreaterThan(0.9);
+
+    // And then it gets out of the way.
+    await expect(page.locator(".nudge")).toHaveCount(0, { timeout: 6000 });
+    await expect
+      .poll(() =>
+        page.locator(".focus__idletip").evaluate((e) => Number(getComputedStyle(e).opacity))
+      )
+      .toBeLessThan(0.6);
+
+    // Never again in this browser. Being pointed at a payment request every
+    // time you sit down to work is nagging, not attention.
+    await page.mouse.move(700, 500);
+    await page.getByRole("button", { name: "Pause" }).click();
+    await page.getByRole("button", { name: "Reset" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+    await page.waitForTimeout(600);
+    await expect(page.locator(".nudge")).toHaveCount(0);
+
+    // The flag is what remembers, so it survives a reload too.
+    expect(
+      await page.evaluate(() => localStorage.getItem("pomodoro-focus-nudged-v1"))
+    ).toBe("1");
+  });
+
   test("the in-session tip link stays reachable when the chrome fades", async ({ page }) => {
     await page.goto(APP, { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Start" }).click();
