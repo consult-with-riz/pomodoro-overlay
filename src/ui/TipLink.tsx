@@ -22,9 +22,11 @@ export function tipEnabled(): boolean {
 interface Props {
   /**
    * "moment" is for just after the app did something useful — a finished
-   * session, a saved render. "quiet" is the standing link in settings.
+   * session, a saved render. "idle" is the faint line carried through a
+   * running session, for anyone who leaves before the end. "quiet" is the
+   * standing link in settings.
    */
-  variant?: "moment" | "quiet";
+  variant?: "moment" | "idle" | "quiet";
   children?: React.ReactNode;
 }
 

@@ -209,6 +209,23 @@
   border:1px solid color-mix(in srgb, var(--phase-ink) 22%, transparent);
 }
 
+/*
+  The tip line during a session. Quiet while the controls are up, a little
+  clearer once they have faded, and never hidden — it has to survive the
+  pointer movement that reaching for it causes.
+*/
+.focus__idletip{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  z-index:5;transition:opacity .8s ease;opacity:.34;
+}
+.focus__idletip:hover{opacity:1}
+.focus--idle .focus__idletip{opacity:.6}
+.focus .focus__idletip .tip{font-size:13px;opacity:1}
+
+/* Too little vertical room to place it clear of the controls. */
+@media (max-height:620px){ .focus__idletip{display:none} }
+
 /* Once a session is running and the pointer settles, everything but the timer
    fades out. It comes straight back on any movement or key press. */
 .focus--idle .focus__bar,

@@ -209,24 +209,54 @@ test.describe("focus timer", () => {
     await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   });
 
-  test("no support link appears until one is configured", async ({ page }) => {
-    // NEXT_PUBLIC_TIP_URL is unset in CI and in a default build, and a
-    // support button that leads nowhere is worse than none. Finish a session
-    // so the completion state — where the ask lives — is actually rendered.
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        "pomodoro-focus-settings-v1",
-        JSON.stringify({ focusMin: 1, breakMin: 0, rounds: 1, presetId: "custom" })
-      );
-    });
+  test("the tip link waits until a session has actually delivered something", async ({ page }) => {
     await page.goto(APP, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Start" }).click();
+    await page.waitForTimeout(600);
 
+    // Asking thirty seconds after someone pressed Start is asking before
+    // anything has been given, so there is a threshold.
+    await expect(page.locator(".focus__idletip")).toHaveCount(0);
+
+    // Past it — Skip jumps to the break, well beyond five minutes in.
+    await page.getByRole("button", { name: "Skip" }).click();
+    await expect(page.locator(".focus__idletip")).toHaveCount(1);
+  });
+
+  test("the in-session tip link stays reachable when the chrome fades", async ({ page }) => {
+    await page.goto(APP, { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Start" }).click();
     await page.getByRole("button", { name: "Skip" }).click();
-    await expect(page.locator(".focus__done")).toBeVisible();
+    await expect(page.locator(".focus__idletip")).toBeVisible();
 
-    expect(process.env.NEXT_PUBLIC_TIP_URL ?? "").toBe("");
-    await expect(page.locator(".tip")).toHaveCount(0);
+    // Reaching for it moves the pointer, which wakes the page. If it were
+    // only rendered while idle it would vanish on the way to being clicked,
+    // so it has to survive leaving the idle state.
+    await page.mouse.move(700, 450);
+    await page.waitForTimeout(5200);
+    await expect(page.locator(".focus")).toHaveClass(/focus--idle/);
+    await expect(page.locator(".focus__idletip")).toBeVisible();
+
+    await page.mouse.move(720, 470);
+    await page.waitForTimeout(400);
+    await expect(page.locator(".focus")).not.toHaveClass(/focus--idle/);
+    await expect(page.locator(".focus__idletip")).toBeVisible();
+
+    await page.locator(".focus__idletip .tip").click({ trial: true });
+  });
+
+  test("no tip link is ever rendered without a destination", async ({ page }) => {
+    // A support button that leads nowhere is worse than none at all.
+    await page.goto(APP, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Skip" }).click();
+    await page.waitForTimeout(400);
+
+    const hrefs = await page.locator(".tip").evaluateAll((els) =>
+      els.map((e) => (e as HTMLAnchorElement).getAttribute("href"))
+    );
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) expect(href).toMatch(/^https?:\/\/.+/);
   });
 
   test("the task name is kept", async ({ page }) => {

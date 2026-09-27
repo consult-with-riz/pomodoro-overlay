@@ -8,6 +8,9 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 4173;
 const APP_PORT = 4302;
 
+/** Stand-in for a Stripe Payment Link; never opened, only inspected. */
+export const TIP_URL = "https://donate.stripe.test/test-link";
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
@@ -44,7 +47,12 @@ export default defineConfig({
     {
       // The real app, for the smoke tests. Built first so these run against
       // production output rather than dev-mode behaviour.
-      command: `npx next build && npx next start -p ${APP_PORT}`,
+      //
+      // The tip URL is set here because NEXT_PUBLIC_* is inlined at build
+      // time: without it the support links compile out entirely and none of
+      // their behaviour can be tested.
+      command:
+        `NEXT_PUBLIC_TIP_URL=${TIP_URL} npx next build && npx next start -p ${APP_PORT}`,
       url: `http://127.0.0.1:${APP_PORT}`,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
