@@ -88,6 +88,22 @@ Both optional. The app works with neither set.
 | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | Absolute base for `og:image`. Set it once there is a custom domain. |
 | `NEXT_PUBLIC_EMAIL_FORM_ACTION` | Endpoint for the signup form. Unset, the form does not render. |
+| `NEXT_PUBLIC_TIP_URL` | A Stripe Payment Link. Unset, no support link renders anywhere. |
+
+### Tipping
+
+Deliberately a Stripe Payment Link — a hosted checkout page made in the Stripe
+dashboard — rather than a Stripe API integration. No API routes, no webhook, no
+secret key in this repo and nothing to store, so the app keeps its "no backend,
+nothing uploaded" claim.
+
+A tip buys nothing and unlocks nothing. There are no accounts to attach an
+entitlement to, so a subscription would be selling something undeliverable.
+
+The ask appears where the app has just done something useful — the session
+completion state, and after a render is ready to save — plus a quiet line in
+settings. `NEXT_PUBLIC_*` is inlined at build time, so setting it in Vercel
+needs a redeploy before it appears.
 
 ## Licences
 

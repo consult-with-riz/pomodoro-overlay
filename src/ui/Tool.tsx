@@ -49,6 +49,7 @@ import {
 } from "../export";
 import Backdrop from "./Backdrop";
 import EmailCapture from "./EmailCapture";
+import TipLink from "./TipLink";
 
 type StatusKind = "" | "ok" | "err";
 
@@ -1090,6 +1091,13 @@ export default function Tool() {
                 </button>
               )}
             </div>
+            {/* Only once there is a finished file — the point at which the
+                tool has actually done the work. */}
+            {result && !rendering && (
+              <div className="row">
+                <TipLink variant="moment">This is free — tip if it helped</TipLink>
+              </div>
+            )}
           </div>
           <p className="hint">
             Rendering runs in this tab, faster than real time. Keep the tab open

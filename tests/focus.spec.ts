@@ -209,6 +209,26 @@ test.describe("focus timer", () => {
     await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   });
 
+  test("no support link appears until one is configured", async ({ page }) => {
+    // NEXT_PUBLIC_TIP_URL is unset in CI and in a default build, and a
+    // support button that leads nowhere is worse than none. Finish a session
+    // so the completion state — where the ask lives — is actually rendered.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "pomodoro-focus-settings-v1",
+        JSON.stringify({ focusMin: 1, breakMin: 0, rounds: 1, presetId: "custom" })
+      );
+    });
+    await page.goto(APP, { waitUntil: "networkidle" });
+
+    await page.getByRole("button", { name: "Start" }).click();
+    await page.getByRole("button", { name: "Skip" }).click();
+    await expect(page.locator(".focus__done")).toBeVisible();
+
+    expect(process.env.NEXT_PUBLIC_TIP_URL ?? "").toBe("");
+    await expect(page.locator(".tip")).toHaveCount(0);
+  });
+
   test("the task name is kept", async ({ page }) => {
     await page.goto(APP, { waitUntil: "networkidle" });
     await page.getByPlaceholder("What are you working on?").fill("Write the script");

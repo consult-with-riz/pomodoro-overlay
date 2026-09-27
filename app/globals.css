@@ -214,6 +214,14 @@ input[type=range].slider{width:100%;accent-color:var(--tomato)}
 .facts dt{color:var(--muted)}
 .facts dd{margin:0;font-weight:600}
 
+/* Tip link. Understated on purpose — it appears after the tool has done
+   something, not as standing furniture. */
+.tip{display:inline-flex;align-items:center;gap:2px;text-decoration:none;font-size:13.5px;
+  font-weight:500;color:var(--muted);border-bottom:1px solid transparent;padding:2px 0}
+.tip:hover{color:var(--tomato);border-bottom-color:var(--tomato)}
+.tip--moment{font-size:14px;color:var(--tomato);font-weight:600}
+.tip--moment:hover{color:var(--tomato-hover);border-bottom-color:var(--tomato-hover)}
+
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 @media (max-width: 1020px){

@@ -193,6 +193,16 @@
 .sound__vol input{flex:1;accent-color:var(--tomato)}
 .sound__hint{margin:2px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45;width:100%}
 
+/* On the focus page the tip link takes the phase colours like everything
+   else, rather than the global tokens. */
+.focus .tip{color:inherit;opacity:.62;font-size:14px;text-decoration:none;
+  border-bottom:1px solid transparent}
+.focus .tip:hover{opacity:1;border-bottom-color:currentColor}
+.focus .tip--moment{opacity:.85;color:var(--phase-accent);font-weight:600}
+.focus .tip--moment:hover{opacity:1}
+.sheet .tip{color:var(--muted)}
+.sheet .tip:hover{color:var(--tomato);border-bottom-color:var(--tomato)}
+
 .focus__keys{margin:0;font-size:12.5px;opacity:.5;text-align:center}
 .focus__keys kbd{
   font:inherit;font-weight:600;padding:1px 5px;border-radius:4px;

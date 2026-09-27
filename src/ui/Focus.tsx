@@ -38,6 +38,7 @@ import {
   type Timeline,
 } from "../timeline";
 import type { Settings } from "../settings";
+import TipLink, { tipEnabled } from "./TipLink";
 
 /** How long the controls linger after the pointer stops, while running. */
 const IDLE_MS = 4000;
@@ -543,6 +544,9 @@ export default function Focus() {
             <button className="btn primary" type="button" onClick={() => { reset(); start(); }}>
               Go again
             </button>
+            {/* Asked here rather than from a permanent button in the chrome:
+                this is the one moment the app has just given something. */}
+            <TipLink variant="moment">This is free — tip if it helped</TipLink>
           </div>
         ) : (
           <input
@@ -787,6 +791,17 @@ export default function Focus() {
             Count up instead of down
           </label>
         </section>
+
+        {tipEnabled() && (
+          <section>
+            <h3>Support this</h3>
+            <p className="hint">
+              Free, no account, nothing uploaded, and no plans to change that.
+              A tip keeps it that way — it buys nothing and unlocks nothing.
+            </p>
+            <TipLink variant="quiet" />
+          </section>
+        )}
 
         <section>
           <h3>Making a video?</h3>
