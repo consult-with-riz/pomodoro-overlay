@@ -1,112 +1,187 @@
-# Pomodoro timer and overlay maker
+# Pomodoro timer
 
-A browser-only Pomodoro timer that also renders itself to a video file you can lay
-over footage — green screen, blue screen, or WebM with real transparency.
+**Live: https://pomodoro-overlay-rho.vercel.app**
 
-Nothing is uploaded. There is no backend, no account, no database. The encoding
-happens on your machine, in your browser.
+Two tools that share one engine.
 
-## Status
+**A focus timer** — open it, press start, work. Pick 25/5, 50/10 or 90/15, choose
+a background that shifts when you move from working to a break, and turn on brown
+noise if that helps you concentrate.
 
-Phases 1–3 done. Not yet deployed.
+**A video overlay maker** — the same timer, but rendered out as a video file you
+can drop on top of your own footage. Useful if you make "study with me" or
+"work with me" videos and want a countdown on screen.
 
-- [x] **1 · Harness** — repo, pinned fonts, golden frames captured from the prototype
-- [x] **2 · Port** — Next.js + TypeScript, mediabunny from npm, File System Access API
-- [x] **3 · Ship gaps** — capability detection, render size guard, wake lock, metadata,
-      OG image, favicon, analytics, email capture
-- [ ] **4 · Deploy** — GitHub → Vercel, CI on pull requests
+Everything happens inside your browser. Nothing is uploaded, there's no account to
+make, and no database storing anything about you. Even the video is put together
+on your own machine — which is why a long render takes a while and why the tab has
+to stay open while it does.
 
-## Working on it
+---
+
+## What each part does
+
+### The focus timer — at `/`
+
+- Three session presets, so there's nothing to set up before you start
+- The background changes colour between focus and break, so a break actually
+  feels different from working
+- A bell, chime, wooden knock or gong at each switch — or silence
+- Brown, pink or white noise while the timer runs
+- Type what you're working on and it shows on screen
+- Your screen won't go to sleep mid-session
+- Refresh the page by accident and your session carries on where it was
+- Keyboard: `Space` start/pause, `S` skip, `R` reset, `F` full screen
+
+### The overlay maker — at `/overlay`
+
+- Ring, bar or digits; four typefaces; your own colours
+- Green screen, blue screen, black, or a genuinely see-through video
+- Tell it which editor you use and it picks the right format for you — this
+  matters, because Premiere Pro and Final Cut **cannot open** see-through video,
+  and picking it by mistake means waiting out a long render for a file your
+  editor refuses
+- Drop in a clip or a screenshot of your own footage to check how it'll look
+  before you commit to rendering
+- Style presets if you don't want to fiddle with every setting
+
+---
+
+## Running it on your own machine
+
+You need [Node.js](https://nodejs.org) installed. Then:
 
 ```bash
-npm install
-npx playwright install chromium
-
-npm run dev        # http://localhost:3000
-npm run build
-npm run typecheck
-npm test           # builds the app and runs everything below
+npm install                      # download what the project needs
+npx playwright install chromium  # a browser used for the tests
+npm run dev                      # now open http://localhost:3000
 ```
 
-Maintenance scripts, rarely needed:
+That's it for day-to-day work. Other commands:
 
 ```bash
-npm run fonts      # re-pin the four fonts into public/fonts/
-npm run favicon    # regenerate app/favicon.ico from app/icon.svg
-npm run harness    # derive the prototype test harness
-npm run golden     # re-capture reference frames (needs --force to overwrite)
+npm run build       # make the production version
+npm run typecheck   # check for mistakes without running anything
+npm test            # run the whole test suite (takes about a minute)
 ```
 
-## How it is tested
+And a few you'll almost never need:
 
-Three layers, because each catches something the others cannot.
-
-**Golden frames** (`tests/golden.spec.ts`) — 17 PNGs captured from the prototype
-before the port began, covering every segment kind, all four fonts, all three
-styles, both screen colours, transparent, plates, position, scale, count-up and
-labels off. `src/draw.ts` has to reproduce each one. This is the layer that
-catches a wrong picture.
-
-**Encoded output** (`tests/video.spec.ts`) — renders the real 248-second session
-and checks it with ffprobe: h264 at 1280×720 and 248s for the green MP4, vp9 with
-a genuinely transparent corner pixel for the WebM. Then it pulls the frame at
-t=5s back out of the MP4 and compares it to the golden for that moment, which is
-what proves the export path and the preview path agree.
-
-**App smoke tests** (`tests/app.spec.ts`) — the built app loads without errors,
-the timer runs, settings survive a reload, and the chroma-key warning fires.
-
-ffmpeg and ffprobe come from npm, so CI and a laptop encode with the same binaries.
-
-## Layout
-
-```
-app/              Next.js routes, metadata, OG image, icon
-src/              the core — no React below src/ui/
-  timeline.ts     segments, stateAt(t), formatting
-  draw.ts         drawFrame() — pure, no DOM, no React
-  bell.ts         bell synthesis, shared live and export
-  live.ts         timer loop, bells, title, wake lock
-  export.ts       render pipeline — no DOM, so it can move to a Worker
-  ui/             the React shell
-public/fonts/     pinned woff2, generated by npm run fonts
-reference/        the original prototype. Read-only.
-tests/golden/     committed reference frames — the contract
+```bash
+npm run fonts       # re-download the fonts into public/fonts/
+npm run favicon     # regenerate the tab icon from app/icon.svg
+npm run harness     # rebuild the test scaffolding around the old prototype
+npm run golden      # re-take the reference screenshots (see below)
 ```
 
-`reference/pomodoro-overlay.html` is the original working prototype and the spec
-for how the timer looks and counts. It is never edited: the golden frames were
-captured from it, and they are what the port is tested against.
+---
 
-See `CLAUDE.md` for the architecture rules and what is deliberately out of scope.
+## Where things live
 
-## Configuration
+```
+app/            The pages. app/page.tsx is the focus timer,
+                app/overlay/page.tsx is the overlay maker.
 
-Both optional. The app works with neither set.
+src/            The engine. Shared by both pages.
+  timeline.ts   Works out which part of the session you're in
+  draw.ts       Draws one frame of the timer
+  bell.ts       Makes the bell sounds from scratch, no audio files
+  noise.ts      Makes the brown/pink/white noise the same way
+  live.ts       Runs the clock
+  export.ts     Turns the timer into a video file
+  ui/           The buttons and panels you actually see
 
-| Variable | Effect |
+public/fonts/   The four typefaces, bundled rather than loaded from Google
+reference/      The original prototype this was built from. Never edited.
+tests/          See below
+```
+
+One rule worth knowing if you're changing things: **everything in `src/` except
+`src/ui/` is plain TypeScript with no React in it.** That's what lets the same
+code run the on-screen timer and the video export, and it's why the two can't
+drift apart and start disagreeing.
+
+`CLAUDE.md` has the longer version, including things that were deliberately left
+out and why.
+
+---
+
+## Why there are so many tests
+
+There are 47, which sounds like a lot for a timer. Each group exists because
+something specific could break without anyone noticing.
+
+**Reference screenshots** (`tests/golden/`) — 17 pictures of the timer, taken
+from the original prototype before any of it was rewritten. Every change has to
+still produce those same pictures.
+
+This is the important one. A video file can be perfectly valid — right size,
+right length, right format — and be completely blank. Checking the file tells you
+nothing about whether the picture inside it is right. Only comparing actual
+pixels catches that.
+
+If you deliberately change how the timer looks, you re-take these with
+`npm run golden -- --force` and say why in the commit. It refuses to overwrite
+them by accident, because they're the thing everything else is measured against.
+
+**Video checks** (`tests/video.spec.ts`) — renders a real four-minute session and
+inspects the finished file: is it the right format, the right size, exactly 248
+seconds long, is the see-through version actually see-through. Then it pulls a
+single frame back out of the video and compares it to the reference screenshot
+for that same moment — which proves that what you see on screen and what lands in
+the file are the same thing.
+
+**Page checks** (`tests/focus.spec.ts`, `tests/app.spec.ts`) — the pages load
+without errors, the clock keeps proper time, a refresh doesn't destroy a session,
+the timer fits on a laptop screen without scrolling, and the warnings fire when
+your colour choice would get keyed out.
+
+The video tools come bundled with the project rather than being installed on your
+computer, so the tests behave the same everywhere.
+
+---
+
+## Settings you can turn on
+
+All optional — it works fine with none of them set. These go in Vercel under
+Project → Settings → Environment Variables.
+
+| Name | What it does |
 | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Absolute base for `og:image`. Set it once there is a custom domain. |
-| `NEXT_PUBLIC_EMAIL_FORM_ACTION` | Endpoint for the signup form. Unset, the form does not render. |
-| `NEXT_PUBLIC_TIP_URL` | A Stripe Payment Link. Unset, no support link renders anywhere. |
+| `NEXT_PUBLIC_SITE_URL` | Your domain, once you have one. Makes link previews work on social media. |
+| `NEXT_PUBLIC_EMAIL_FORM_ACTION` | An email signup endpoint. Without it, no signup form appears at all. |
+| `NEXT_PUBLIC_TIP_URL` | A Stripe Payment Link. Without it, no tip link appears anywhere. |
 
-### Tipping
+One gotcha: these are baked in when the site is built, not read while it's
+running. So after adding one in Vercel you have to **redeploy** before it takes
+effect.
 
-Deliberately a Stripe Payment Link — a hosted checkout page made in the Stripe
-dashboard — rather than a Stripe API integration. No API routes, no webhook, no
-secret key in this repo and nothing to store, so the app keeps its "no backend,
-nothing uploaded" claim.
+### About the tip link
 
-A tip buys nothing and unlocks nothing. There are no accounts to attach an
-entitlement to, so a subscription would be selling something undeliverable.
+It's a [Stripe Payment Link](https://stripe.com/payments/payment-links) — a
+checkout page you create by filling in a form on Stripe's website. No payment
+code lives in this project at all, which is the point: no secret keys to protect,
+nothing stored, and the "nothing is uploaded, no backend" promise stays true.
 
-The ask appears where the app has just done something useful — the session
-completion state, and after a render is ready to save — plus a quiet line in
-settings. `NEXT_PUBLIC_*` is inlined at build time, so setting it in Vercel
-needs a redeploy before it appears.
+A tip buys nothing and unlocks nothing. There are no accounts here, so there'd be
+nothing to give a paying supporter — and charging for something undeliverable
+isn't worth doing.
+
+It appears where the app has just been useful: when a session finishes, while one
+is running, once a video is ready to save, and quietly in settings.
+
+---
 
 ## Licences
 
-The app is MIT. [Mediabunny](https://mediabunny.dev) is MPL-2.0. The four fonts —
-Big Shoulders Display, Schibsted Grotesk, JetBrains Mono, Instrument Serif — are
-under the SIL Open Font License and are redistributed in `public/fonts/`.
+This project is MIT — use it however you like.
+
+Two things inside it belong to other people and have their own terms:
+
+- **[Mediabunny](https://mediabunny.dev)**, which does the video encoding, is
+  MPL-2.0. Fine to use commercially. If you ever modify Mediabunny's own files,
+  those changes have to be published too. Nothing here modifies them.
+- **The four typefaces** — Big Shoulders Display, Schibsted Grotesk, JetBrains
+  Mono and Instrument Serif — are under the SIL Open Font License, which allows
+  bundling them like this. Their licence text ships alongside them in
+  `public/fonts/OFL.txt`.
