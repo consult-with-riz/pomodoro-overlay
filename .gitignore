@@ -15,3 +15,4 @@ reference/prototype-harness.html
 # build artefacts
 tsconfig.tsbuildinfo
 next-env.d.ts
+.env*
